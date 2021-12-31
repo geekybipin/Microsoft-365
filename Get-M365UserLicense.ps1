@@ -86,9 +86,9 @@ function Get-License {
     }
 }
 
-if ($filename) {
+if ($FileName) {
     try {
-        $users = Import-Csv $FileName
+        $Users = Import-Csv $FileName
     }
     catch {
         $ErrorMessage = $_.Exception.Message
