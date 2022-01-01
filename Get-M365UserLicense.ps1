@@ -2,8 +2,10 @@
 .SYNOPSIS
     This script will export user licenses from M365. 
 .DESCRIPTION
-    This script will export list of users with their assigned license. You have option to provide list of users from CSV file `
-    or use All switch to export license of all users in the tenant. If you use CSV file, the file must contain column heading called 'UserPrincipalName' with no space and quotes. 
+    This script uses MSOL service. So make sure your PowerShell session is connected to MSOL service. `
+    This script will export list of users with their assigned M365 license. You have option to provide list of users from CSV file `
+    or use All switch to export license of all users in the tenant or use UserPrincipleName parameter to specify one or more users. `
+    If you use CSV file, the file must contain column heading as UserPrincipalName with no space and quotes. 
 .EXAMPLE
     PS C:\> Get-M365UserLicenses.ps1 -All
     This will export one or more license(s) of all users in the Microsoft 365 tenant. 
@@ -31,7 +33,7 @@
 #>
 [CmdletBinding()]
 param (
-    [Parameter(ValueFromPipeline=$true, Mandatory=$false, Position=1)][Switch]$All,
+    [Parameter(ValueFromPipeline=$false, Mandatory=$false)][Switch]$All,
     [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String]$FileName,
     [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String]$ExportCsv,  
     [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String[]]$UserPrincipalName
@@ -53,50 +55,45 @@ elseif (($All) -and ($UserPrincipalName) )  {
 
 #function block
 function Get-License {
-    #Declaring strings as null
-    $LicArray = ""
-    $FinalReport = ""
-    $GroupObject = ""
-
-    #Declaring variables as Array. 
-    $FinalReport = @()
-    $GroupObject = @()
-    $AllLicenses = @()
-
-    #running for each statement
+#Declaring variables as Array. 
+$FinalReport = @()
+$GroupObject = @()
+$GetLicense = @()
+    #running ForEach statement
     foreach ($User in $Users) {
         $UPN = $User.UserPrincipalName
-        try {
-            $AllLicenses = (Get-MsolUser -UserPrincipalName $UPN).Licenses	
-        }
-        catch {
-            $ErrorMessage = $_.Exception.Message
-            Write-Host "Error: $ErrorMessage" -ForegroundColor Red
-        }
-        for($i = 0; $i -lt $AllLicenses.Count; $i++)
-            {
-                $LicArray += $AllLicenses[$i].AccountSkuId + "; "
-            }
-        if ($LicArray -eq "") {
-            Write-Host "$($UPN) is unlicensed:" -ForegroundColor Cyan
-            $LicArray = "User Unlicensed"
-        }
-        else {
-            $LicArray = ($LicArray).TrimEnd('; ')
-            Write-Host "$($UPN) has following licenses:"
-            Write-Host "$LicArray" -ForegroundColor Green
-        }
-        #Write-Host "`n"
-        $ObjectProperties = [Ordered]@{
+        $UserAccount = Get-MsolUser -UserPrincipalName $UPN -ErrorAction SilentlyContinue
+            if ($UserAccount) {
+                $GetLicense = ($UserAccount).Licenses
+                for($i = 0; $i -lt $GetLicense.Count; $i++){
+                    $LicArray += $GetLicense[$i].AccountSkuId + "; "
+                }
+                if ($LicArray -eq "") {
+                    Write-Host "$($UPN) is unlicensed:" -ForegroundColor Cyan
+                    $LicArray = "User Unlicensed"
+                }
+                else {
+                    $LicArray = ($LicArray).TrimEnd('; ')
+                    Write-Host "$($UPN) has following licenses:" -ForegroundColor Green
+                    Write-Host "$LicArray"
+                }
+            #Write-Host "`n"
+            $ObjectProperties = [Ordered]@{
                 "UserPrincipalName" = $UPN
                 "License" = $LicArray
-                }
-        $GroupObject = New-Object -TypeName PSObject -Property $ObjectProperties
-        $FinalReport += $GroupObject
-        #declaring variable $licArray as null for next loop. 
-        $LicArray = ""
-    }   
+            }
+            $GroupObject = New-Object -TypeName PSObject -Property $ObjectProperties
+            $FinalReport += $GroupObject
+            #declaring variable $licArray as null for next loop. 
+            $LicArray = ""
+            }   
+        else {
+            Write-Host "Error: User $UPN not found." -ForegroundColor Red
+        }
+
+    }
     if ($ExportCsv) {
+        Write-Host "Exporting to csv..." -ForegroundColor Magenta
         $FinalReport | Export-Csv "$ExportCsv"  -NoTypeInformation
     }
 }
@@ -135,15 +132,14 @@ elseif ($All) {
 elseif ($UserPrincipalName) {
     $Users = @()
     foreach ($item in $UserPrincipalName) {
+        #Creating hashtable
         $newUsersHash = @{
         'UserPrincipalName' = "$item"
         }
+    #Creating custom object
     $UserObj = [PSCustomObject]$newUsersHash
     $Users += $UserObj
     }
-    $Users | Export-Csv hashtable.csv -NoTypeInformation
-    Write-Host "Users"
-    Write-host $Users
+    #calling function
     Get-License
 }
-
