@@ -63,20 +63,20 @@ $GetLicense = @()
     foreach ($User in $Users) {
         $UPN = $User.UserPrincipalName
         $UserAccount = Get-MsolUser -UserPrincipalName $UPN -ErrorAction SilentlyContinue
-            if ($UserAccount) {
-                $GetLicense = ($UserAccount).Licenses
-                for($i = 0; $i -lt $GetLicense.Count; $i++){
-                    $LicArray += $GetLicense[$i].AccountSkuId + "; "
-                }
-                if ($LicArray -eq "") {
-                    Write-Host "$($UPN) is unlicensed:" -ForegroundColor Cyan
-                    $LicArray = "User Unlicensed"
-                }
-                else {
-                    $LicArray = ($LicArray).TrimEnd('; ')
-                    Write-Host "$($UPN) has following licenses:" -ForegroundColor Green
-                    Write-Host "$LicArray"
-                }
+        if ($UserAccount) {
+            $GetLicense = ($UserAccount).Licenses
+            for($i = 0; $i -lt $GetLicense.Count; $i++){
+                $LicArray += $GetLicense[$i].AccountSkuId + "; "
+            }
+            if ($LicArray -eq "") {
+                Write-Host "$($UPN) is unlicensed:" -ForegroundColor Cyan
+                $LicArray = "User Unlicensed"
+            }
+            else {
+                $LicArray = ($LicArray).TrimEnd('; ')
+                Write-Host "$($UPN) has following licenses:" -ForegroundColor Green
+                Write-Host "$LicArray"
+            }
             #Write-Host "`n"
             $ObjectProperties = [Ordered]@{
                 "UserPrincipalName" = $UPN
@@ -90,7 +90,6 @@ $GetLicense = @()
         else {
             Write-Host "Error: User $UPN not found." -ForegroundColor Red
         }
-
     }
     if ($ExportCsv) {
         Write-Host "Exporting to csv..." -ForegroundColor Magenta
@@ -98,8 +97,8 @@ $GetLicense = @()
     }
 }
 
-
 <# If statement to check paramenter inputs.     
+If FileName is used then user is processed based on list of users available in CSV file. 
 If All switch is used then all users will be retrieved. 
 If CSV file is used with FileName parameter then users in CSV file will be used. 
 #>
