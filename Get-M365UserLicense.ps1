@@ -16,6 +16,12 @@
 .Example
     PS C:\> Get-M365UserLicenses.ps1 -FileName listofusers.csv -ExportCsv UserLicenseFile.csv
     This will export license of only users present in Listofusers.csv file. Note that the file must have column header 'UserPrincipalName' with no space and quotes. 
+.Example
+    PS C:\> Get-M365UserLicenses.ps1 -UserPrincipalName username@domain.com 
+    This will show license of one user. 
+.Example
+    PS C:\> Get-M365UserLicenses.ps1 -UserPrincipalName user1@domain.com, user2@domain.com
+    This will show license of more than one user. 
 .INPUTS
     Inputs (if any)
 .OUTPUTS
@@ -27,12 +33,23 @@
 param (
     [Parameter(ValueFromPipeline=$true, Mandatory=$false, Position=1)][Switch]$All,
     [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String]$FileName,
-    [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String]$ExportCsv  
+    [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String]$ExportCsv,  
+    [Parameter(ValueFromPipeline=$false, Mandatory=$false)][String[]]$UserPrincipalName
 )
-<# If statement to check paramenters.     
-If All switch is used then all users will be retrieved. 
-If user supply CSV file then users in CSV file will be used. 
-#>
+
+#Parameter Validation
+if (($FileName) -and ($All) )  {
+    Write-Host "Error: You cannot use -FileName and -All parameter at the same time. `nnPlease choose correct parameter name. `nSee script examples using help for more information." -ForegroundColor Red
+    break
+}
+elseif (($FileName) -and ($UserPrincipalName)) {
+    Write-Host "Error: You cannot use -FileName and -UserPrincipalName parameters at the same time. Please choose correct parameter name. See script examples using help for more information." -ForegroundColor Red
+    break   
+}
+elseif (($All) -and ($UserPrincipalName) )  {
+    Write-Host "Error: You cannot use -All and -UserPrincipalName parameters at the same time. `nPlease choose correct parameter name. `nSee script examples using help for more information." -ForegroundColor Red
+    break
+}
 
 #function block
 function Get-License {
@@ -65,6 +82,7 @@ function Get-License {
             $LicArray = "User Unlicensed"
         }
         else {
+            $LicArray = ($LicArray).TrimEnd('; ')
             Write-Host "$($UPN) has following licenses:"
             Write-Host "$LicArray" -ForegroundColor Green
         }
@@ -81,11 +99,13 @@ function Get-License {
     if ($ExportCsv) {
         $FinalReport | Export-Csv "$ExportCsv"  -NoTypeInformation
     }
-    else {
-        $FinalReport
-    }
 }
 
+
+<# If statement to check paramenter inputs.     
+If All switch is used then all users will be retrieved. 
+If CSV file is used with FileName parameter then users in CSV file will be used. 
+#>
 if ($FileName) {
     try {
         $Users = Import-Csv $FileName
@@ -106,8 +126,24 @@ if ($FileName) {
         exit
     }
 }
-else {
+elseif ($All) {
+    #Retrieve all users in the tenant
     $Users = Get-MsolUser -All
     #calling function
     Get-License
+} 
+elseif ($UserPrincipalName) {
+    $Users = @()
+    foreach ($item in $UserPrincipalName) {
+        $newUsersHash = @{
+        'UserPrincipalName' = "$item"
+        }
+    $UserObj = [PSCustomObject]$newUsersHash
+    $Users += $UserObj
+    }
+    $Users | Export-Csv hashtable.csv -NoTypeInformation
+    Write-Host "Users"
+    Write-host $Users
+    Get-License
 }
+
