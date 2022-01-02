@@ -132,10 +132,10 @@ elseif ($UserPrincipalName) {
     $Users = @()
     foreach ($item in $UserPrincipalName) {
         #Creating hashtable
-        $newUsersHash = [PSCustomObject] @{
+        $newUsersObj = [PSCustomObject] @{
         'UserPrincipalName' = "$item"
         }
-    $Users += $newUsersHash
+    $Users += $newUsersObj
     }
     #calling function
     Get-License
